@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mesh Gradient Studio</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: #0e0e14;
+  display: flex;
+  height: 100vh;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  overflow: hidden;
+  color: #ccc;
+}
+
+/* ── PANEL ── */
+#panel {
+  width: 220px; min-width: 220px;
+  background: #111118;
+  display: flex; flex-direction: column;
+  padding: 16px 14px 12px;
+  gap: 14px;
+  overflow-y: auto;
+  font-size: 11px;
+}
+#panel::-webkit-scrollbar { width: 3px; }
+#panel::-webkit-scrollbar-thumb { background: #333; border-radius: 2px; }
+
+.brand-title { font-size: 14px; font-weight: 700; color: #fff; }
+.brand-sub   { font-size: 10px; color: #555; margin-top: 2px; }
+
+.divider { height: 1px; background: #1e1e2a; margin: 0 -14px; }
+
+.sec-label {
+  font-size: 9px; font-weight: 700; letter-spacing: 1.2px;
+  color: #555; text-transform: uppercase;
+  margin-bottom: 6px;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.sec-label .btns { display: flex; gap: 8px; }
+.sec-label button { background: none; border: none; color: #555; cursor: pointer; font-size: 14px; line-height: 1; }
+.sec-label button:hover { color: #aaa; }
+
+/* swatches */
+#swatches { display: flex; gap: 5px; flex-wrap: wrap; }
+.swatch {
+  width: 28px; height: 28px; border-radius: 7px;
+  cursor: pointer; border: 2px solid transparent;
+  position: relative; overflow: hidden; transition: border-color .15s;
+}
+.swatch:hover { border-color: #fff3; }
+.swatch input[type=color] { position: absolute; opacity: 0; inset: 0; cursor: pointer; }
+.swatch-add {
+  width: 28px; height: 28px; border-radius: 7px;
+  border: 1.5px dashed #333; background: none; color: #444;
+  cursor: pointer; font-size: 18px; line-height: 26px; text-align: center;
+}
+.swatch-add:hover { border-color: #666; color: #888; }
+
+/* sliders */
+.sliders { display: flex; flex-direction: column; gap: 9px; }
+.sr { display: flex; align-items: center; gap: 8px; }
+.sr-label { width: 68px; min-width: 68px; color: #888; font-size: 10px; }
+.sr input[type=range] {
+  flex: 1; -webkit-appearance: none; appearance: none;
+  height: 4px; border-radius: 2px; outline: none; cursor: pointer;
+  background: linear-gradient(to right, #4efa9f 0%, #4efa9f var(--pct,50%), #252535 var(--pct,50%), #252535 100%);
+}
+.sr input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 13px; height: 13px; border-radius: 50%;
+  background: #4efa9f; border: 2px solid #111118;
+  cursor: pointer; box-shadow: 0 0 5px #4efa9f66;
+}
+.sr-val { width: 30px; text-align: right; color: #666; font-size: 10px; font-variant-numeric: tabular-nums; }
+
+
+/* bottom */
+#bottom { display: flex; gap: 7px; margin-top: auto; padding-top: 4px; }
+.btn-ghost {
+  flex: 1; background: none; border: 1px solid #2a2a3a; color: #888;
+  font-size: 11px; padding: 7px; border-radius: 6px; cursor: pointer; transition: all .15s;
+}
+.btn-ghost:hover { border-color: #555; color: #ccc; }
+.btn-export {
+  flex: 1; background: #4efa9f; border: none; color: #111;
+  font-size: 11px; font-weight: 700; padding: 7px; border-radius: 6px;
+  cursor: pointer; transition: all .15s;
+}
+.btn-export:hover { background: #6ffcb0; }
+
+.undo-btn { background: none; border: none; color: #444; font-size: 10px; cursor: pointer; }
+.undo-btn:hover { color: #aaa; }
+
+/* canvas area */
+#canvas-wrap {
+  flex: 1; position: relative;
+  display: flex; align-items: center; justify-content: center;
+  background: #0e0e14; padding: 20px;
+}
+#glc {
+  border-radius: 16px; display: block;
+  max-width: 100%; max-height: 100%;
+  box-shadow: 0 12px 60px #000c;
+}
+
+/* size btns */
+#sizes { display: grid; grid-template-columns: repeat(4,1fr); gap: 4px; }
+.sz {
+  background: #1a1a26; border: 1px solid #222; color: #777;
+  font-size: 9px; padding: 5px 2px; border-radius: 4px;
+  cursor: pointer; text-align: center; transition: all .15s;
+}
+.sz:hover { background: #222232; color: #bbb; }
+.sz.active { background: #1a2a1a; border-color: #2a5a2a; color: #4efa9f; }
+</style>
+</head>
+<body>
+
+<div id="panel">
+  <div>
+    <div class="brand-title">Chime Mesh</div>
+  </div>
+  <div class="divider"></div>
+
+  <div>
+    <div class="sec-label">
+      Colors (<span id="cnt">5</span>)
+      <div class="btns">
+        <button onclick="remColor()">−</button>
+        <button onclick="addColor()">+</button>
+      </div>
+    </div>
+    <div id="swatches"></div>
+  </div>
+
+  <div>
+    <div class="sec-label">Canvas Size</div>
+    <div id="sizes">
+      <button class="sz active" data-ar="fit">Fit</button>
+      <button class="sz" data-ar="16:9">16:9</button>
+      <button class="sz" data-ar="4:3">4:3</button>
+      <button class="sz" data-ar="1:1">1:1</button>
+      <button class="sz" data-ar="3:4">3:4</button>
+      <button class="sz" data-ar="9:16">9:16</button>
+      <button class="sz" data-ar="4K">4K</button>
+      <button class="sz" data-ar="custom">Custom</button>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <div>
+    <div class="sec-label">Controls</div>
+    <div class="sliders" id="sliders"></div>
+  </div>
+
+  <button class="undo-btn" onclick="resetDefaults()">← Reset</button>
+  <div class="divider"></div>
+
+  <div id="bottom">
+    <button class="btn-ghost" id="pause-btn" onclick="togglePause()">⏸ Pause</button>
+    <button class="btn-export" onclick="doExport()">Export</button>
+  </div>
+</div>
+
+<div id="canvas-wrap">
+  <canvas id="glc"></canvas>
+</div>
+
+<script>
+// ── COLORS ──────────────────────────────────────────────────────────
+const PRESETS = {
+  'Default':  ['#f5f5f5','#22c55e','#0d3b22','#061810','#cdf079'],
+  'Warm':     ['#fff7ed','#fb923c','#9a3412','#431407','#fde68a'],
+  'Cool':     ['#f0f9ff','#38bdf8','#0c4a6e','#082f49','#bae6fd'],
+  'Neon':     ['#0d0d0d','#39ff14','#ff00ff','#00ffff','#1a1a2e'],
+  'Sunset':   ['#fff1e6','#f97316','#dc2626','#7c3aed','#fbbf24'],
+  'Forest':   ['#f0fdf4','#16a34a','#14532d','#052e16','#bbf7d0'],
+  'Ocean':    ['#f0f9ff','#0ea5e9','#0c4a6e','#001a2e','#7dd3fc'],
+  'Cosmic':   ['#0f0c29','#302b63','#24243e','#a855f7','#ec4899'],
+  'Mint':     ['#f0fdfa','#2dd4bf','#0f766e','#042f2e','#99f6e4'],
+  'Gold':     ['#fffbeb','#f59e0b','#92400e','#1c0a00','#fde68a'],
+};
+
+let colors = [...PRESETS['Default']];
+let paused = false;
+let startTime = performance.now();
+let elapsed = 0;
+let pausedAt = 0;
+let currentAr = 'fit';
+
+const sliderDefs = [
+  { id:'speed',    label:'Speed',    min:0,   max:3,   step:0.01, val:0.5 },
+  { id:'blend',    label:'Blend',    min:1,   max:8,   step:0.1,  val:3.5 },
+  { id:'noise',    label:'Noise',    min:0,   max:1,   step:0.01, val:0.18 },
+  { id:'scale',    label:'Scale',    min:0.3, max:3,   step:0.01, val:1.0 },
+  { id:'grain',    label:'Grain',    min:0,   max:1,   step:0.01, val:0.0 },
+];
+let P = {};
+sliderDefs.forEach(s => P[s.id] = s.val);
+
+// ── SLIDER FILL ─────────────────────────────────────────────────────
+function fillSlider(inp) {
+  const pct = ((parseFloat(inp.value) - parseFloat(inp.min)) /
+               (parseFloat(inp.max)  - parseFloat(inp.min)) * 100).toFixed(1) + '%';
+  inp.style.setProperty('--pct', pct);
+}
+
+function buildSliders() {
+  const c = document.getElementById('sliders');
+  c.innerHTML = '';
+  sliderDefs.forEach(def => {
+    const row = document.createElement('div'); row.className = 'sr';
+    const lbl = document.createElement('span'); lbl.className = 'sr-label'; lbl.textContent = def.label;
+    const inp = document.createElement('input');
+    inp.type = 'range'; inp.min = def.min; inp.max = def.max; inp.step = def.step; inp.value = P[def.id];
+    fillSlider(inp);
+    const val = document.createElement('span'); val.className = 'sr-val';
+    val.textContent = P[def.id].toFixed(def.step < 1 ? 2 : 0);
+    inp.addEventListener('input', () => {
+      P[def.id] = parseFloat(inp.value);
+      val.textContent = P[def.id].toFixed(def.step < 1 ? 2 : 0);
+      fillSlider(inp);
+    });
+    row.append(lbl, inp, val); c.appendChild(row);
+  });
+}
+
+function resetDefaults() { sliderDefs.forEach(s => P[s.id] = s.val); buildSliders(); }
+
+// ── SWATCHES ────────────────────────────────────────────────────────
+function buildSwatches() {
+  const c = document.getElementById('swatches'); c.innerHTML = '';
+  colors.forEach((hex, i) => {
+    const sw = document.createElement('div'); sw.className = 'swatch';
+    sw.style.background = hex;
+    const inp = document.createElement('input'); inp.type = 'color'; inp.value = hex;
+    inp.addEventListener('input', () => { colors[i] = inp.value; sw.style.background = inp.value; });
+    sw.appendChild(inp); c.appendChild(sw);
+  });
+  if (colors.length < 8) {
+    const add = document.createElement('button'); add.className = 'swatch-add';
+    add.textContent = '+'; add.onclick = addColor; c.appendChild(add);
+  }
+  document.getElementById('cnt').textContent = colors.length;
+}
+function addColor() { if (colors.length < 8) { colors.push('#ffffff'); buildSwatches(); } }
+function remColor() { if (colors.length > 2) { colors.pop(); buildSwatches(); } }
+
+// ── PRESETS ─────────────────────────────────────────────────────────
+
+
+// ── CANVAS SIZE ──────────────────────────────────────────────────────
+document.querySelectorAll('.sz').forEach(b => {
+  b.addEventListener('click', () => {
+    document.querySelectorAll('.sz').forEach(x => x.classList.remove('active'));
+    b.classList.add('active');
+    currentAr = b.dataset.ar;
+    applyAspect(currentAr);
+  });
+});
+function applyAspect(ar) {
+  const wrap = document.getElementById('canvas-wrap');
+  const pw = wrap.clientWidth - 40, ph = wrap.clientHeight - 40;
+  let w = pw, h = ph;
+  if (ar === 'fit')   { w = pw; h = ph; }
+  else if (ar === '1:1') { const s = Math.min(pw,ph); w = s; h = s; }
+  else if (ar === '4K')  { w = pw; h = Math.round(pw/4); }
+  else if (ar === 'custom') { w = pw; h = ph; }
+  else {
+    const [a,b] = ar.split(':').map(Number), ratio = a/b;
+    if (pw/ph > ratio) { h = ph; w = Math.round(ph*ratio); }
+    else { w = pw; h = Math.round(pw/ratio); }
+  }
+  glc.width = w; glc.height = h;
+  gl.viewport(0, 0, w, h);
+}
+
+// ── WEBGL ────────────────────────────────────────────────────────────
+const glc = document.getElementById('glc');
+const gl = glc.getContext('webgl', { preserveDrawingBuffer: true }) || glc.getContext('experimental-webgl', { preserveDrawingBuffer: true });
+
+const VS = `
+attribute vec2 a_pos;
+void main() { gl_Position = vec4(a_pos, 0.0, 1.0); }
+`;
+
+const FS = `
+precision highp float;
+uniform vec2  u_res;
+uniform float u_time;
+uniform float u_speed;
+uniform float u_blend;
+uniform float u_noise;
+uniform float u_scale;
+uniform float u_grain;
+uniform float u_num;
+uniform vec3  u_c0,u_c1,u_c2,u_c3,u_c4,u_c5,u_c6,u_c7;
+uniform vec2  u_p0,u_p1,u_p2,u_p3,u_p4,u_p5,u_p6,u_p7;
+
+vec3 getC(float i) {
+  if(i<0.5) return u_c0; if(i<1.5) return u_c1; if(i<2.5) return u_c2;
+  if(i<3.5) return u_c3; if(i<4.5) return u_c4; if(i<5.5) return u_c5;
+  if(i<6.5) return u_c6; return u_c7;
+}
+vec2 getP(float i) {
+  if(i<0.5) return u_p0; if(i<1.5) return u_p1; if(i<2.5) return u_p2;
+  if(i<3.5) return u_p3; if(i<4.5) return u_p4; if(i<5.5) return u_p5;
+  if(i<6.5) return u_p6; return u_p7;
+}
+
+float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1,311.7))) * 43758.5453); }
+float noise(vec2 p) {
+  vec2 i = floor(p), f = fract(p);
+  f = f*f*(3.0-2.0*f);
+  float a=hash(i), b=hash(i+vec2(1,0)), c=hash(i+vec2(0,1)), d=hash(i+vec2(1,1));
+  return mix(mix(a,b,f.x), mix(c,d,f.x), f.y);
+}
+
+void main() {
+  vec2 uv = gl_FragCoord.xy / u_res;
+  uv = (uv - 0.5) * vec2(u_res.x/u_res.y, 1.0) * u_scale;
+
+  float t = u_time * u_speed;
+
+  // Noise warp
+  float n = noise(uv * 2.0 + t * 0.15) * 2.0 - 1.0;
+  uv += n * u_noise * 0.3;
+
+  // Weighted blend of color orbs
+  vec3 col = vec3(0.0);
+  float total = 0.0;
+  for(int i = 0; i < 8; i++) {
+    if(float(i) >= u_num) break;
+    vec2 pos = getP(float(i));
+    float d = distance(uv, pos);
+    float w = 1.0 / pow(d + 0.001, u_blend);
+    col += getC(float(i)) * w;
+    total += w;
+  }
+  col /= total;
+
+  // Film grain
+  float g = hash(gl_FragCoord.xy + fract(t * 7.3)) * 2.0 - 1.0;
+  col += g * u_grain * 0.06;
+
+  gl_FragColor = vec4(clamp(col, 0.0, 1.0), 1.0);
+}
+`;
+
+function mkShader(type, src) {
+  const s = gl.createShader(type);
+  gl.shaderSource(s, src); gl.compileShader(s);
+  if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) console.error(gl.getShaderInfoLog(s));
+  return s;
+}
+const prog = gl.createProgram();
+gl.attachShader(prog, mkShader(gl.VERTEX_SHADER, VS));
+gl.attachShader(prog, mkShader(gl.FRAGMENT_SHADER, FS));
+gl.linkProgram(prog); gl.useProgram(prog);
+
+const buf = gl.createBuffer();
+gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1,1,-1,-1,1,1,1]), gl.STATIC_DRAW);
+const aPos = gl.getAttribLocation(prog, 'a_pos');
+gl.enableVertexAttribArray(aPos);
+gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 0, 0);
+
+const U = {};
+['u_res','u_time','u_speed','u_blend','u_noise','u_scale','u_grain','u_num',
+ 'u_c0','u_c1','u_c2','u_c3','u_c4','u_c5','u_c6','u_c7',
+ 'u_p0','u_p1','u_p2','u_p3','u_p4','u_p5','u_p6','u_p7'
+].forEach(n => U[n] = gl.getUniformLocation(prog, n));
+
+function hex2rgb(h) {
+  return [parseInt(h.slice(1,3),16)/255, parseInt(h.slice(3,5),16)/255, parseInt(h.slice(5,7),16)/255];
+}
+
+// Generate animated orb positions — unique Lissajous-like paths per orb
+function orbPos(i, t, scale) {
+  const seeds = [
+    [1.3, 0.9, 0.4, 1.1, 0.3, 0.8],
+    [0.7, 1.5, 1.2, 0.5, 1.0, 0.2],
+    [1.1, 0.6, 0.8, 1.4, 0.6, 0.5],
+    [0.5, 1.2, 1.5, 0.7, 0.9, 0.3],
+    [1.4, 0.8, 0.6, 1.2, 0.4, 1.1],
+    [0.9, 1.1, 0.3, 0.8, 1.3, 0.7],
+    [0.6, 0.4, 1.1, 1.5, 0.7, 1.2],
+    [1.2, 1.3, 0.7, 0.6, 1.1, 0.4],
+  ];
+  const s = seeds[i % 8];
+  const x = Math.sin(t * s[0] + s[2]) * Math.cos(t * s[1] * 0.7) * 0.55 / scale;
+  const y = Math.cos(t * s[3] + s[5]) * Math.sin(t * s[4] * 0.6) * 0.55 / scale;
+  return [x, y];
+}
+
+function render(ts) {
+  if (!paused) elapsed = (ts - startTime) / 1000;
+
+  const n = colors.length;
+  gl.uniform2f(U['u_res'], glc.width, glc.height);
+  gl.uniform1f(U['u_time'], elapsed);
+  gl.uniform1f(U['u_speed'], P.speed);
+  gl.uniform1f(U['u_blend'], P.blend);
+  gl.uniform1f(U['u_noise'], P.noise);
+  gl.uniform1f(U['u_scale'], P.scale);
+  gl.uniform1f(U['u_grain'], P.grain);
+  gl.uniform1f(U['u_num'],   n);
+
+  const cNames = ['u_c0','u_c1','u_c2','u_c3','u_c4','u_c5','u_c6','u_c7'];
+  const pNames = ['u_p0','u_p1','u_p2','u_p3','u_p4','u_p5','u_p6','u_p7'];
+  const t = elapsed * P.speed;
+  for (let i = 0; i < 8; i++) {
+    const rgb = i < n ? hex2rgb(colors[i]) : [0,0,0];
+    gl.uniform3f(U[cNames[i]], rgb[0], rgb[1], rgb[2]);
+    const [px, py] = orbPos(i, t, P.scale);
+    gl.uniform2f(U[pNames[i]], px, py);
+  }
+
+  gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+  requestAnimationFrame(render);
+}
+
+function togglePause() {
+  paused = !paused;
+  const btn = document.getElementById('pause-btn');
+  if (paused) { pausedAt = elapsed; btn.textContent = '▶ Play'; }
+  else { startTime = performance.now() - pausedAt * 1000; btn.textContent = '⏸ Pause'; }
+}
+
+function doExport() {
+  const a = document.createElement('a');
+  a.download = 'mesh-gradient.png';
+  a.href = glc.toDataURL('image/png');
+  a.click();
+}
+
+// ── INIT ─────────────────────────────────────────────────────────────
+buildSliders();
+buildSwatches();
+applyAspect('fit');
+requestAnimationFrame(render);
+window.addEventListener('resize', () => applyAspect(currentAr));
+</script>
+</body>
+</html>
