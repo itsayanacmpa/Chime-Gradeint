@@ -160,9 +160,21 @@ body {
   <button class="undo-btn" onclick="resetDefaults()">← Reset</button>
   <div class="divider"></div>
 
+  <div>
+    <div class="sec-label">Export Video</div>
+    <div style="display:flex;gap:5px;margin-bottom:8px;">
+      <button class="sz" id="dur3"  onclick="setDur(3)"  style="flex:1">3s</button>
+      <button class="sz active" id="dur5"  onclick="setDur(5)"  style="flex:1">5s</button>
+      <button class="sz" id="dur10" onclick="setDur(10)" style="flex:1">10s</button>
+      <button class="sz" id="dur30" onclick="setDur(30)" style="flex:1">30s</button>
+    </div>
+    <button class="btn-export" id="rec-btn" onclick="toggleRecord()" style="width:100%;margin-bottom:6px;">⏺ Record MP4</button>
+    <div id="rec-status" style="font-size:10px;color:#555;text-align:center;height:14px;"></div>
+  </div>
+
   <div id="bottom">
     <button class="btn-ghost" id="pause-btn" onclick="togglePause()">⏸ Pause</button>
-    <button class="btn-export" onclick="doExport()">Export</button>
+    <button class="btn-export" onclick="doExport()">Export PNG</button>
   </div>
 </div>
 
@@ -436,6 +448,67 @@ function doExport() {
   a.download = 'mesh-gradient.png';
   a.href = glc.toDataURL('image/png');
   a.click();
+}
+
+// ── VIDEO EXPORT ─────────────────────────────────────────────────────
+let recDuration = 5;
+let recorder = null;
+let recInterval = null;
+
+function setDur(s) {
+  recDuration = s;
+  ['dur3','dur5','dur10','dur30'].forEach(id => document.getElementById(id).classList.remove('active'));
+  document.getElementById('dur' + s).classList.add('active');
+}
+
+function toggleRecord() {
+  if (recorder && recorder.state === 'recording') {
+    recorder.stop();
+    return;
+  }
+
+  const mimeType = ['video/mp4;codecs=avc1','video/mp4','video/webm;codecs=vp9','video/webm']
+    .find(t => MediaRecorder.isTypeSupported(t)) || 'video/webm';
+  const ext = mimeType.startsWith('video/mp4') ? 'mp4' : 'webm';
+
+  const stream = glc.captureStream(30);
+  const chunks = [];
+  recorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 8000000 });
+
+  recorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
+  recorder.onstop = () => {
+    clearInterval(recInterval);
+    const blob = new Blob(chunks, { type: mimeType });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href = url; a.download = 'mesh-gradient.' + ext; a.click();
+    URL.revokeObjectURL(url);
+    document.getElementById('rec-btn').textContent = '⏺ Record MP4';
+    document.getElementById('rec-btn').style.background = '#4efa9f';
+    document.getElementById('rec-status').textContent = '';
+    recorder = null;
+  };
+
+  recorder.start(100);
+  const btn = document.getElementById('rec-btn');
+  btn.textContent = '⏹ Stop';
+  btn.style.background = '#ef4444';
+
+  let remaining = recDuration;
+  document.getElementById('rec-status').textContent = `Recording… ${remaining}s`;
+  recInterval = setInterval(() => {
+    remaining--;
+    if (remaining <= 0) {
+      clearInterval(recInterval);
+      document.getElementById('rec-status').textContent = 'Saving…';
+      if (recorder && recorder.state === 'recording') recorder.stop();
+    } else {
+      document.getElementById('rec-status').textContent = `Recording… ${remaining}s`;
+    }
+  }, 1000);
+  setTimeout(() => {
+    if (recorder && recorder.state === 'recording') recorder.stop();
+  }, recDuration * 1000);
 }
 
 // ── INIT ─────────────────────────────────────────────────────────────
